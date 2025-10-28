@@ -25,6 +25,10 @@ serve(async (req) => {
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
+    }
+    
     const prompt = `Generate 3-5 unique project ideas based on:
 - Project Type: ${projectType}
 - Domains: ${domains.join(', ')}
@@ -78,7 +82,11 @@ Return as JSON array with fields: title, description, technologies (array).`;
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Edge function error:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.stack 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

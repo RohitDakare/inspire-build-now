@@ -1,0 +1,122 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React",
+    "Vite",
+    "React Router",
+    "Supabase",
+    "PostgreSQL",
+    "Tailwind CSS",
+    "shadcn/ui",
+    "OpenAI API",
+    "Google Gemini API"
+  ],
+  "features": [
+    {
+      "name": "User Authentication",
+      "description": "User sign up, login, logout, and session management using Supabase Auth",
+      "files": [
+        "src/pages/Auth.tsx",
+        "src/integrations/supabase/client.ts"
+      ]
+    },
+    {
+      "name": "AI Project Idea Generation",
+      "description": "Generate personalized project ideas using OpenAI GPT-4o-mini based on user preferences (type, domain, complexity, technologies, skill level)",
+      "files": [
+        "src/pages/Generate.tsx",
+        "supabase/functions/generate-project-ideas/index.ts"
+      ]
+    },
+    {
+      "name": "Project Dashboard",
+      "description": "Display user's recent projects, saved projects count, and quick actions",
+      "files": [
+        "src/pages/Dashboard.tsx"
+      ]
+    },
+    {
+      "name": "Project Ideas Display",
+      "description": "Show generated project ideas in a grid layout with filtering and sorting",
+      "files": [
+        "src/pages/ProjectIdeas.tsx"
+      ]
+    },
+    {
+      "name": "Project Details",
+      "description": "View detailed information about a specific project including overview, technologies, roadmap, and documentation",
+      "files": [
+        "src/pages/ProjectDetails.tsx"
+      ]
+    },
+    {
+      "name": "AI Documentation Generation",
+      "description": "Generate comprehensive project documentation using Google Gemini API",
+      "files": [
+        "src/pages/Documentation.tsx",
+        "supabase/functions/generate-documentation/index.ts"
+      ]
+    },
+    {
+      "name": "Saved Projects",
+      "description": "Manage and view saved/bookmarked projects",
+      "files": [
+        "src/pages/SavedProjects.tsx"
+      ]
+    },
+    {
+      "name": "User Settings",
+      "description": "User profile settings and preferences",
+      "files": [
+        "src/pages/Settings.tsx"
+      ]
+    },
+    {
+      "name": "Landing Page",
+      "description": "Marketing landing page with features showcase and call-to-action",
+      "files": [
+        "src/pages/Index.tsx"
+      ]
+    },
+    {
+      "name": "Supabase Integration",
+      "description": "Database client, types, and queries for projects, profiles, and saved projects",
+      "files": [
+        "src/integrations/supabase/client.ts",
+        "src/integrations/supabase/types.ts"
+      ]
+    },
+    {
+      "name": "UI Components",
+      "description": "Reusable UI components using shadcn/ui library (buttons, cards, forms, etc.)",
+      "files": [
+        "src/components/ui"
+      ]
+    },
+    {
+      "name": "Routing",
+      "description": "Application routing configuration with protected routes and navigation",
+      "files": [
+        "src/App.tsx",
+        "src/main.tsx"
+      ]
+    },
+    {
+      "name": "Toast Notifications",
+      "description": "User feedback and notifications system",
+      "files": [
+        "src/components/ui/toast.tsx",
+        "src/components/ui/toaster.tsx",
+        "src/hooks/use-toast.ts"
+      ]
+    },
+    {
+      "name": "Responsive Design",
+      "description": "Mobile-responsive layouts and adaptive UI components",
+      "files": [
+        "src/hooks/use-mobile.tsx",
+        "src/index.css"
+      ]
+    }
+  ]
+}

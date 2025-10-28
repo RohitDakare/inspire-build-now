@@ -85,10 +85,70 @@ const Generate = () => {
     }
   };
 
+  const createMockProjects = async (userId: string) => {
+
+    const mockProjects = [
+      {
+        title: `${formData.domains[0]} Management System`,
+        description: `A comprehensive ${formData.domains[0].toLowerCase()} management application with user-friendly interface and robust features. Perfect for ${formData.purpose}`,
+        technologies: formData.technologies.split(",").map(t => t.trim()).filter(t => t !== ""),
+        project_type: formData.projectType,
+        domain: formData.domains,
+        complexity: getComplexityLabel(formData.complexity),
+        skill_level: formData.skillLevel,
+        purpose: formData.purpose,
+      },
+      {
+        title: `${formData.domains[0]} Analytics Dashboard`,
+        description: `Build an interactive dashboard to visualize and analyze ${formData.domains[0].toLowerCase()} data. Great for learning data visualization.`,
+        technologies: [...formData.technologies.split(",").map(t => t.trim()), "Chart.js", "D3.js"],
+        project_type: formData.projectType,
+        domain: formData.domains,
+        complexity: getComplexityLabel(formData.complexity),
+        skill_level: formData.skillLevel,
+        purpose: formData.purpose,
+      },
+      {
+        title: `AI-Powered ${formData.domains[0]} Assistant`,
+        description: `Create an intelligent assistant for ${formData.domains[0].toLowerCase()} with natural language processing and smart recommendations.`,
+        technologies: [...formData.technologies.split(",").map(t => t.trim()), "OpenAI API", "WebSockets"],
+        project_type: formData.projectType,
+        domain: formData.domains,
+        complexity: getComplexityLabel(formData.complexity),
+        skill_level: formData.skillLevel,
+        purpose: formData.purpose,
+      }
+    ];
+
+    const projects = [];
+    for (const idea of mockProjects) {
+      const { data: project } = await supabase
+        .from('projects')
+        .insert({
+          user_id: userId,
+          ...idea,
+        })
+        .select()
+        .single();
+      
+      if (project) projects.push(project);
+    }
+
+    toast({
+      title: "Ideas Generated! (Mock Data)",
+      description: `Created ${projects.length} project ideas using mock data. The edge function is not deployed yet.`,
+    });
+    navigate("/ideas");
+  };
+
   const handleGenerate = async () => {
+    // Rate limiting: Prevent rapid clicks
+    if (loading) return;
+    
     setLoading(true);
 
     try {
+      // Check session once and reuse
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
@@ -102,13 +162,28 @@ const Generate = () => {
           domains: formData.domains,
           purpose: formData.purpose,
           complexity: getComplexityLabel(formData.complexity),
-          technologies: formData.technologies.split(",").map(t => t.trim()),
+          technologies: formData.technologies.split(",").map(t => t.trim()).filter(t => t !== ""),
           skillLevel: formData.skillLevel,
         },
       });
 
-      if (error) throw error;
+      // If edge function call failed, use mock data
+      if (error) {
+        console.warn('Edge function error, using fallback mock data:', error);
+        try {
+          await createMockProjects(session.user.id);
+        } catch (mockError) {
+          console.error('Mock data creation failed:', mockError);
+          toast({
+            title: "Generation Failed",
+            description: "Failed to create mock projects. Please try again.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
 
+      // Edge function succeeded
       if (data && data.projects && data.projects.length > 0) {
         toast({
           title: "Ideas Generated!",
@@ -122,7 +197,7 @@ const Generate = () => {
       console.error("Error generating ideas:", error);
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate ideas. Please try again.",
+        description: error?.message || "Failed to generate ideas. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -331,9 +406,20 @@ const Generate = () => {
                   id="technologies"
                   placeholder="React, Node.js, Python, MongoDB..."
                   value={formData.technologies}
-                  onChange={(e) => setFormData({ ...formData, technologies: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Limit to 500 characters
+                    if (value.length <= 500) {
+                      setFormData({ ...formData, technologies: value });
+                    }
+                  }}
+                  maxLength={500}
+                  minLength={1}
                   className="text-lg"
                 />
+                <p className="text-sm text-muted-foreground">
+                  {formData.technologies.length}/500 characters
+                </p>
               </div>
             </div>
           )}

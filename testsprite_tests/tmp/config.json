@@ -1,0 +1,15 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8081",
+  "loginUser": "shomitohitfriend1@gmail.com",
+  "loginPassword": "1162325645",
+  "executionArgs": {
+    "projectName": "inspire-build-now",
+    "projectPath": "D:\\imp file\\New folder\\inspire-build-now",
+    "testIds": [],
+    "additionalInstruction": "Test the main user flows: authentication, project generation, viewing projects, and navigation between pages",
+    "envs": {}
+  }
+}
