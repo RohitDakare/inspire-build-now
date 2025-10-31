@@ -13,21 +13,31 @@ serve(async (req) => {
   }
 
   try {
+    const requestData = await req.json();
+    console.log("Received request data:", requestData);
+    
     const {
-      goal,
-      projectType,
-      projectKind,
-      domains,
-      stackPreference,
-      purpose,
-      timePlan,
-      realWorldArea,
-      complexity,
-      technologies,
-      skillLevel,
-      educationRole,
+      goal = "Unknown",
+      projectType = "web",
+      projectKind = "fullstack",
+      domains = [],
+      stackPreference = "modern",
+      purpose = "learning",
+      timePlan = "1-2 months",
+      realWorldArea = [],
+      complexity = "intermediate",
+      technologies = [],
+      skillLevel = "intermediate",
+      educationRole = "developer",
       provider = "both"
-    } = await req.json();
+    } = requestData;
+
+    // Ensure arrays are valid
+    const safeDomains = Array.isArray(domains) ? domains : [];
+    const safeTechnologies = Array.isArray(technologies) ? technologies : [];
+    const safeRealWorldArea = Array.isArray(realWorldArea) ? realWorldArea : [];
+
+    console.log("Processing with domains:", safeDomains, "technologies:", safeTechnologies);
 
     const prompt = `You are an expert project advisor helping developers find the perfect project to build. Generate 3-5 unique, innovative, and real-world applicable project ideas based on these comprehensive preferences:
 
@@ -39,13 +49,13 @@ serve(async (req) => {
 - Skill Level: ${skillLevel}
 
 **Project Requirements:**
-- Domains: ${domains.join(", ")}
+- Domains: ${safeDomains.length > 0 ? safeDomains.join(", ") : "General"}
 - Stack Preference: ${stackPreference}
 - Purpose: ${purpose}
 - Time Commitment: ${timePlan}
 - Complexity: ${complexity}
-- Preferred Technologies: ${technologies.join(", ")}
-- Real-World Focus Areas: ${realWorldArea.join(", ")}
+- Preferred Technologies: ${safeTechnologies.length > 0 ? safeTechnologies.join(", ") : "Any modern stack"}
+- Real-World Focus Areas: ${safeRealWorldArea.length > 0 ? safeRealWorldArea.join(", ") : "General applications"}
 
 **Instructions:**
 1. Generate projects that are REALISTIC and ACHIEVABLE within the specified timeframe
@@ -220,9 +230,9 @@ Return ONLY a valid JSON array with 3-5 project objects. No markdown, no explana
             user_id: user.id,
             title: idea.title || 'Untitled Project',
             description: idea.description || idea.realWorldApplication || 'No description',
-            technologies: idea.techStack || technologies,
+            technologies: idea.techStack || safeTechnologies,
             project_type: projectType,
-            domain: domains,
+            domain: safeDomains,
             complexity: idea.difficulty || complexity,
             skill_level: skillLevel,
             purpose: purpose,
