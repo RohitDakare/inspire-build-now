@@ -256,6 +256,7 @@ const Generate = () => {
       // Handle edge function errors
       if (error) {
         console.error('Edge function error:', error);
+        console.error('Error details:', JSON.stringify(error));
         
         // Check for specific error types
         if (error.message?.includes('Rate limit exceeded')) {
@@ -292,14 +293,31 @@ const Generate = () => {
       }
 
       // Edge function succeeded
-      if (data && data.projects && data.projects.length > 0) {
+      console.log("Generation response:", JSON.stringify(data));
+      console.log("Data type:", typeof data);
+      console.log("Has projects key:", 'projects' in (data || {}));
+      console.log("Projects value:", data?.projects);
+      
+      // Handle different possible response formats
+      const projects = data?.projects || data;
+      
+      if (Array.isArray(projects) && projects.length > 0) {
         toast({
           title: "Ideas Generated!",
-          description: `Created ${data.projects.length} project ideas for you.`,
+          description: `Created ${projects.length} project ideas for you.`,
+        });
+        navigate("/ideas");
+      } else if (projects && typeof projects === 'object' && Object.keys(projects).length > 0) {
+        // If data came back as a single object somehow
+        toast({
+          title: "Ideas Generated!",
+          description: "Created project ideas for you.",
         });
         navigate("/ideas");
       } else {
-        throw new Error("No projects generated");
+        console.error("Invalid response format:", data);
+        console.error("Response structure:", JSON.stringify(data, null, 2));
+        throw new Error("Invalid response format: missing or invalid data");
       }
     } catch (error: any) {
       console.error("Error generating ideas:", error);
