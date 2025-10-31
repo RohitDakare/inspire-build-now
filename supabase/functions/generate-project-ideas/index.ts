@@ -1,394 +1,265 @@
-// @deno-types="https://deno.land/x/types/deno.d.ts"
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// Type definitions
-interface ProjectIdea {
-  title: string;
-  description: string;
-  technologies: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  domain: string;
-  features: string[];
-  estimated_time?: string;
-}
-
-interface GenerationRequest {
-  domain: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  technologies?: string[];
-  features?: string[];
-  count?: number;
-  provider?: 'openai' | 'gemini' | 'both';
-}
-
-interface ErrorResponse {
-  error: {
-    message: string;
-    details?: any;
-    code?: string;
-  };
-}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
 };
 
-const openaiUrl = 'https://api.openai.com/v1/chat/completions';
-const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-serve(async (req: Request) => {
-  // Enhanced request logging
-  const requestId = Math.random().toString(36).substring(2, 9);
-  const log = (...args: any[]) => console.log(`[${new Date().toISOString()}] [${requestId}]`, ...args);
-  
-  log('Request received:', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
-  });
-  
-  // Handle CORS preflight
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    log('Handling CORS preflight');
-    return new Response(null, { 
-      headers: {
-        ...corsHeaders,
-        'Access-Control-Allow-Origin': '*',
-      } 
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse request body and validate
-    if (!req.body) {
-      const error = { error: { message: 'Request body is required', code: 'MISSING_BODY' }};
-      log('Error:', error);
-      return new Response(
-        JSON.stringify(error), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    const {
+      goal,
+      projectType,
+      projectKind,
+      domains,
+      stackPreference,
+      purpose,
+      timePlan,
+      realWorldArea,
+      complexity,
+      technologies,
+      skillLevel,
+      educationRole,
+      provider = "both"
+    } = await req.json();
 
-    const requestData: GenerationRequest = await req.json();
-    const { 
-      domain, 
-      difficulty, 
-      technologies = [], 
-      features = [],
-      count = 3,
-      provider = 'both'
-    } = requestData;
+    const prompt = `You are an expert project advisor helping developers find the perfect project to build. Generate 3-5 unique, innovative, and real-world applicable project ideas based on these comprehensive preferences:
 
-    // Validate input
-    if (!domain || !difficulty) {
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: 'Domain and difficulty are required',
-            code: 'INVALID_INPUT'
-          } 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+**User Profile:**
+- Goal: ${goal}
+- Project Type: ${projectType}
+- Project Kind: ${projectKind}
+- Education/Role: ${educationRole}
+- Skill Level: ${skillLevel}
 
-    // Get API keys from environment
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+**Project Requirements:**
+- Domains: ${domains.join(", ")}
+- Stack Preference: ${stackPreference}
+- Purpose: ${purpose}
+- Time Commitment: ${timePlan}
+- Complexity: ${complexity}
+- Preferred Technologies: ${technologies.join(", ")}
+- Real-World Focus Areas: ${realWorldArea.join(", ")}
 
-    log('Environment variables:', {
-      hasOpenAIKey: !!openaiApiKey,
-      hasGeminiKey: !!geminiApiKey,
-      hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseKey: !!supabaseKey
-    });
+**Instructions:**
+1. Generate projects that are REALISTIC and ACHIEVABLE within the specified timeframe
+2. Projects should align with the user's goal and solve REAL problems in the specified domains
+3. Include current, trending technologies where appropriate
+4. Consider the user's skill level when suggesting complexity
+5. Make each project unique and exciting
 
-    if (!supabaseUrl || !supabaseKey) {
-      const errorBody = { error: { message: 'Server configuration error: Missing Supabase credentials', code: 'MISSING_CONFIG' } };
-      log('Error:', errorBody);
-      return new Response(
-        JSON.stringify(errorBody),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+For each project idea, provide:
+{
+  "title": "Engaging project name",
+  "description": "Detailed 3-4 sentence description explaining what it does and why it's valuable",
+  "keyFeatures": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
+  "techStack": ["Tech 1", "Tech 2", "Tech 3", "Tech 4"],
+  "estimatedTime": "Realistic timeframe",
+  "difficulty": "beginner/intermediate/advanced",
+  "learningOutcomes": ["Skill 1", "Skill 2", "Skill 3"],
+  "realWorldApplication": "How this solves a real problem",
+  "targetAudience": "Who would use this",
+  "uniqueValue": "What makes this project stand out"
+}
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization') || ''
-        }
-      }
-    });
+Return ONLY a valid JSON array with 3-5 project objects. No markdown, no explanations, just the JSON array.`;
 
-    // Verify user is authenticated
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (!user || userError) {
-      return new Response(
-        JSON.stringify({ error: { message: 'Unauthorized', code: 'AUTH_ERROR' } }),
-        { status: 401, headers: corsHeaders }
-      );
-    }
+    let allIdeas: any[] = [];
 
-    // Generate ideas using the selected provider(s) with graceful fallback
-    let ideas: ProjectIdea[] = [];
-    const wantOpenAI = provider === 'openai' || provider === 'both';
-    const wantGemini = provider === 'gemini' || provider === 'both';
-
-    let openaiTried = false;
-    let geminiTried = false;
-    let lastUpstreamError: Error | null = null;
-
-    if (wantOpenAI) {
-      if (openaiApiKey) {
+    // Generate ideas from OpenAI if selected
+    if (provider === "openai" || provider === "both") {
+      const openaiKey = Deno.env.get('OPENAI_API_KEY');
+      if (!openaiKey) {
+        console.warn("OpenAI API key not configured");
+      } else {
         try {
-          openaiTried = true;
-          ideas = await generateWithOpenAI(domain, difficulty, technologies, features, count, openaiApiKey);
-        } catch (e) {
-          lastUpstreamError = e as Error;
-          console.warn('OpenAI generation failed, will try Gemini if available:', lastUpstreamError?.message);
+          console.log("Calling OpenAI API...");
+          const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                { role: 'system', content: 'You are an expert software project advisor with deep knowledge of modern technologies and real-world applications. Generate practical, innovative project ideas that solve real problems.' },
+                { role: 'user', content: prompt }
+              ],
+              temperature: 0.7,
+              max_tokens: 2000,
+            }),
+          });
+
+          if (!openaiResponse.ok) {
+            const error = await openaiResponse.text();
+            console.error('OpenAI API error:', error);
+          } else {
+            const openaiData = await openaiResponse.json();
+            const openaiContent = openaiData.choices[0].message.content;
+            
+            // Clean the response - remove markdown code blocks if present
+            let cleanContent = openaiContent.trim();
+            if (cleanContent.startsWith('```json')) {
+              cleanContent = cleanContent.replace(/```json\n?/, '').replace(/\n?```$/, '');
+            } else if (cleanContent.startsWith('```')) {
+              cleanContent = cleanContent.replace(/```\n?/, '').replace(/\n?```$/, '');
+            }
+            
+            try {
+              const openaiIdeas = JSON.parse(cleanContent);
+              allIdeas = allIdeas.concat(Array.isArray(openaiIdeas) ? openaiIdeas : [openaiIdeas]);
+              console.log(`Generated ${allIdeas.length} ideas from OpenAI`);
+            } catch (parseError) {
+              console.error('Error parsing OpenAI response:', parseError);
+            }
+          }
+        } catch (error) {
+          console.error('OpenAI API call failed:', error);
         }
-      } else if (provider === 'openai') {
-        return new Response(
-          JSON.stringify({ error: { message: 'OpenAI API key is not configured', code: 'CONFIG_ERROR' } }),
-          { status: 400, headers: corsHeaders }
-        );
       }
     }
 
-    if (wantGemini) {
-      if (geminiApiKey) {
+    // Generate ideas from Gemini if selected
+    if (provider === "gemini" || provider === "both") {
+      const geminiKey = Deno.env.get('GEMINI_API_KEY');
+      if (!geminiKey) {
+        console.warn("Gemini API key not configured");
+      } else {
         try {
-          geminiTried = true;
-          const geminiIdeas = await generateWithGemini(domain, difficulty, technologies, features, count, geminiApiKey);
-          ideas = [...ideas, ...geminiIdeas];
-        } catch (e) {
-          lastUpstreamError = e as Error;
-          console.error('Gemini generation failed:', lastUpstreamError?.message);
+          console.log("Calling Gemini API...");
+          const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: prompt + "\n\nIMPORTANT: Return ONLY valid JSON array, no markdown formatting."
+                  }]
+                }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 2048,
+                }
+              }),
+            }
+          );
+
+          if (!geminiResponse.ok) {
+            const error = await geminiResponse.text();
+            console.error('Gemini API error:', error);
+          } else {
+            const geminiData = await geminiResponse.json();
+            const geminiContent = geminiData.candidates[0].content.parts[0].text;
+            
+            // Clean the response - remove markdown code blocks if present
+            let cleanContent = geminiContent.trim();
+            if (cleanContent.startsWith('```json')) {
+              cleanContent = cleanContent.replace(/```json\n?/, '').replace(/\n?```$/, '');
+            } else if (cleanContent.startsWith('```')) {
+              cleanContent = cleanContent.replace(/```\n?/, '').replace(/\n?```$/, '');
+            }
+            
+            try {
+              const geminiIdeas = JSON.parse(cleanContent);
+              allIdeas = allIdeas.concat(Array.isArray(geminiIdeas) ? geminiIdeas : [geminiIdeas]);
+              console.log(`Generated ${allIdeas.length} total ideas (including Gemini)`);
+            } catch (parseError) {
+              console.error('Error parsing Gemini response:', parseError);
+            }
+          }
+        } catch (error) {
+          console.error('Gemini API call failed:', error);
         }
-      } else if (provider === 'gemini') {
-        return new Response(
-          JSON.stringify({ error: { message: 'Gemini API key is not configured', code: 'CONFIG_ERROR' } }),
-          { status: 400, headers: corsHeaders }
-        );
       }
     }
 
-    if (ideas.length === 0) {
-      if (!openaiApiKey && !geminiApiKey) {
-        return new Response(
-          JSON.stringify({ error: { message: 'No AI providers are configured on the server', code: 'CONFIG_ERROR' } }),
-          { status: 400, headers: corsHeaders }
-        );
-      }
-      const message = lastUpstreamError?.message || 'Both providers failed to generate ideas';
-      const code = 'UPSTREAM_ERROR';
-      return new Response(
-        JSON.stringify({ error: { message, code } }),
-        { status: 502, headers: corsHeaders }
-      );
+    if (allIdeas.length === 0) {
+      throw new Error("No ideas generated from AI providers. Please check API keys and try again.");
     }
 
-    // Deduplicate ideas by title
-    const uniqueIdeas = Array.from(new Map(ideas.map(idea => [idea.title, idea])).values());
+    // Get the authenticated user
+    const authHeader = req.headers.get('Authorization')!;
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    // Return the generated ideas
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    // If using both providers, merge and deduplicate ideas
+    let finalIdeas = allIdeas;
+    if (provider === "both" && allIdeas.length > 5) {
+      // Take best ideas from both providers
+      finalIdeas = allIdeas.slice(0, 5);
+    }
+
+    // Store projects in database
+    const projects = [];
+    for (const idea of finalIdeas) {
+      try {
+        const { data: project, error: insertError } = await supabase
+          .from('projects')
+          .insert({
+            user_id: user.id,
+            title: idea.title || 'Untitled Project',
+            description: idea.description || idea.realWorldApplication || 'No description',
+            technologies: idea.techStack || technologies,
+            project_type: projectType,
+            domain: domains,
+            complexity: idea.difficulty || complexity,
+            skill_level: skillLevel,
+            purpose: purpose,
+            time_commitment: idea.estimatedTime || timePlan,
+            overview: JSON.stringify({
+              keyFeatures: idea.keyFeatures || [],
+              learningOutcomes: idea.learningOutcomes || [],
+              realWorldApplication: idea.realWorldApplication || '',
+              targetAudience: idea.targetAudience || '',
+              uniqueValue: idea.uniqueValue || '',
+            }),
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error inserting project:', insertError);
+        } else if (project) {
+          projects.push(project);
+        }
+      } catch (error) {
+        console.error('Error processing idea:', error);
+      }
+    }
+
+    console.log(`Successfully stored ${projects.length} projects`);
+
     return new Response(
-      JSON.stringify({ data: uniqueIdeas.slice(0, count) }),
-      { status: 200, headers: corsHeaders }
+      JSON.stringify({ projects }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in generate-project-ideas:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    const rawCode = error instanceof Error && 'code' in error ? (error as any).code as string : undefined;
-    let errorCode = rawCode || 'UNKNOWN_ERROR';
-
-    // Map error to HTTP status codes
-    let status = 500;
-    if (errorCode === 'AUTH_ERROR') status = 401;
-    else if (errorCode === 'INVALID_INPUT' || errorCode === 'CONFIG_ERROR' || errorCode === 'MISSING_CONFIG') status = 400;
-    else if (/^(OpenAI|Gemini) API error/i.test(errorMessage) || /UPSTREAM_PARSE_ERROR|UPSTREAM_ERROR/i.test(errorCode)) {
-      errorCode = 'UPSTREAM_ERROR';
-      status = 502;
-    }
-
-    const nodeEnv = Deno.env.get('NODE_ENV');
-    const details = nodeEnv === 'development' && error instanceof Error ? error.stack : undefined;
-
     return new Response(
-      JSON.stringify({ 
-        error: { 
-          message: errorMessage,
-          code: errorCode,
-          details
-        } 
-      }),
-      { 
-        status, 
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        } 
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to generate ideas' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
-
-async function generateWithOpenAI(
-  domain: string,
-  difficulty: string,
-  technologies: string[],
-  features: string[],
-  count: number,
-  apiKey: string
-): Promise<ProjectIdea[]> {
-  const prompt = `Generate ${count} project ideas with these requirements:
-  - Domain: ${domain}
-  - Difficulty: ${difficulty}
-  ${technologies.length ? `- Technologies: ${technologies.join(', ')}\n` : ''}
-  ${features.length ? `- Features: ${features.join(', ')}\n` : ''}
-  
-  Format the response as a JSON array of objects with these properties:
-  {
-    "title": "Project Title",
-    "description": "Detailed description of the project",
-    "technologies": ["tech1", "tech2"],
-    "difficulty": "beginner|intermediate|advanced",
-    "domain": "Project domain",
-    "features": ["feature1", "feature2"],
-    "estimated_time": "Time estimate"
-  }`;
-
-  const response = await fetch(openaiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant that generates project ideas. Always respond with valid JSON arrays only.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content as string | undefined;
-  
-  if (!content) {
-    throw new Error('No content in OpenAI response');
-  }
-
-  const parsed = tryParseJsonArray(content);
-  if (!parsed) {
-    console.error('Failed to parse OpenAI response:', content);
-    throw new Error('Failed to parse project ideas from the AI response');
-  }
-  return parsed;
-}
-
-async function generateWithGemini(
-  domain: string,
-  difficulty: string,
-  technologies: string[],
-  features: string[],
-  count: number,
-  apiKey: string
-): Promise<ProjectIdea[]> {
-  const prompt = `Generate ${count} project ideas with these requirements:
-  - Domain: ${domain}
-  - Difficulty: ${difficulty}
-  ${technologies.length ? `- Technologies: ${technologies.join(', ')}\n` : ''}
-  ${features.length ? `- Features: ${features.join(', ')}\n` : ''}
-  
-  Format the response as a JSON array of objects with these properties:
-  {
-    "title": "Project Title",
-    "description": "Detailed description of the project",
-    "technologies": ["tech1", "tech2"],
-    "difficulty": "beginner|intermediate|advanced",
-    "domain": "Project domain",
-    "features": ["feature1", "feature2"],
-    "estimated_time": "Time estimate"
-  }`;
-
-  const response = await fetch(`${geminiUrl}?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2000,
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Gemini API error: ${error.error?.message || 'Unknown error'}`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
-  
-  if (!content) {
-    throw new Error('No content in Gemini response');
-  }
-
-  const parsed = tryParseJsonArray(content);
-  if (!parsed) {
-    console.error('Failed to parse Gemini response:', content);
-    throw new Error('Failed to parse project ideas from the AI response');
-  }
-  return parsed;
-}
-
-function tryParseJsonArray(text?: string): ProjectIdea[] | null {
-  if (!text) return null;
-  // Fast path: direct parse
-  try {
-    const val = JSON.parse(text);
-    if (Array.isArray(val)) return val as ProjectIdea[];
-  } catch (_) { /* fallthrough */ }
-  // Fallback: extract first JSON array substring
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start >= 0 && end > start) {
-    const slice = text.slice(start, end + 1);
-    try {
-      const val = JSON.parse(slice);
-      if (Array.isArray(val)) return val as ProjectIdea[];
-    } catch (_) { /* ignore */ }
-  }
-  return null;
-}

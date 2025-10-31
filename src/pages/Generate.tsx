@@ -32,6 +32,64 @@ const purposes = [
   { value: "startup", label: "Startup Idea" },
 ];
 
+const goals = [
+  "Build a real product for users",
+  "Learn new technologies",
+  "Solve a specific problem",
+  "Build something for fun",
+  "Create a portfolio piece",
+  "Contribute to open source"
+];
+
+const projectKinds = [
+  "Solo project",
+  "Team collaboration",
+  "Open source contribution",
+  "Client work",
+  "Research project"
+];
+
+const stackPreferences = [
+  "Frontend only",
+  "Backend only",
+  "Full-stack",
+  "Mobile development",
+  "DevOps/Infrastructure",
+  "Data Science/ML",
+  "Blockchain/Web3"
+];
+
+const timePlans = [
+  { value: "1-2weeks", label: "1-2 weeks (Quick sprint)" },
+  { value: "1month", label: "1 month (Short-term)" },
+  { value: "2-3months", label: "2-3 months (Medium-term)" },
+  { value: "6months+", label: "6+ months (Long-term)" },
+];
+
+const realWorldAreas = [
+  "Healthcare & Medicine",
+  "Education & E-learning",
+  "Finance & Banking",
+  "E-commerce & Retail",
+  "Social Impact & Sustainability",
+  "Entertainment & Media",
+  "Agriculture & Food Tech",
+  "Smart Cities & IoT",
+  "Cybersecurity",
+  "Transportation & Logistics"
+];
+
+const educationRoles = [
+  { value: "student-highschool", label: "High School Student" },
+  { value: "student-undergrad", label: "Undergraduate Student" },
+  { value: "student-grad", label: "Graduate Student" },
+  { value: "professional-junior", label: "Junior Developer" },
+  { value: "professional-mid", label: "Mid-level Developer" },
+  { value: "professional-senior", label: "Senior Developer" },
+  { value: "career-switcher", label: "Career Switcher" },
+  { value: "hobbyist", label: "Hobbyist/Self-taught" },
+];
+
 const Generate = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -46,9 +104,15 @@ const Generate = () => {
     technologies: "",
     skillLevel: "intermediate",
     provider: "both" as "openai" | "gemini" | "both",
+    goal: "",
+    projectKind: "",
+    stackPreference: "",
+    timePlan: "",
+    realWorldArea: [] as string[],
+    educationRole: "",
   });
 
-  const totalSteps = 6;
+  const totalSteps = 12;
   const progress = (step / totalSteps) * 100;
 
   const complexityLabels: { [key: number]: string } = {
@@ -75,14 +139,29 @@ const Generate = () => {
     }));
   };
 
+  const handleRealWorldAreaToggle = (area: string) => {
+    setFormData(prev => ({
+      ...prev,
+      realWorldArea: prev.realWorldArea.includes(area)
+        ? prev.realWorldArea.filter(a => a !== area)
+        : [...prev.realWorldArea, area]
+    }));
+  };
+
   const canProceed = () => {
     switch (step) {
-      case 1: return formData.projectType !== "";
-      case 2: return formData.domains.length > 0;
-      case 3: return formData.purpose !== "";
-      case 4: return true;
-      case 5: return formData.technologies.trim() !== "";
-      case 6: return ["openai","gemini","both"].includes(formData.provider);
+      case 1: return formData.goal !== "";
+      case 2: return formData.projectType !== "";
+      case 3: return formData.projectKind !== "";
+      case 4: return formData.domains.length > 0;
+      case 5: return formData.stackPreference !== "";
+      case 6: return formData.purpose !== "";
+      case 7: return formData.timePlan !== "";
+      case 8: return formData.realWorldArea.length > 0;
+      case 9: return true; // complexity slider
+      case 10: return formData.technologies.trim() !== "";
+      case 11: return formData.educationRole !== "";
+      case 12: return ["openai","gemini","both"].includes(formData.provider);
       default: return false;
     }
   };
@@ -160,12 +239,18 @@ const Generate = () => {
       // Call the edge function to generate ideas
       const { data, error } = await supabase.functions.invoke("generate-project-ideas", {
         body: {
+          goal: formData.goal,
           projectType: formData.projectType,
+          projectKind: formData.projectKind,
           domains: formData.domains,
+          stackPreference: formData.stackPreference,
           purpose: formData.purpose,
+          timePlan: formData.timePlan,
+          realWorldArea: formData.realWorldArea,
           complexity: getComplexityLabel(formData.complexity),
           technologies: formData.technologies.split(",").map(t => t.trim()).filter(t => t !== ""),
           skillLevel: formData.skillLevel,
+          educationRole: formData.educationRole,
           provider: formData.provider,
         },
       });
@@ -220,15 +305,48 @@ const Generate = () => {
           <Progress value={progress} className="h-2" />
         </div>
 
-        <Card className="glass-card p-8 animate-scale-in">
-          {/* Step 1: Project Type */}
+        <Card className="glass-card p-6 md:p-8 animate-scale-in">
+          {/* Step 1: Goal */}
           {step === 1 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
+                  What's your goal?
+                </h2>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  What do you want to achieve with this project?
+                </p>
+              </div>
+
+              <RadioGroup
+                value={formData.goal}
+                onValueChange={(value) => setFormData({ ...formData, goal: value })}
+                className="space-y-3"
+              >
+                {goals.map((goal) => (
+                  <Label key={goal} htmlFor={goal} className="cursor-pointer">
+                    <Card
+                      className={`p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                        formData.goal === goal ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={goal} id={goal} className="sr-only" />
+                      <span className="font-medium text-sm md:text-base">{goal}</span>
+                    </Card>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Step 2: Project Type */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
                   What type of project?
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm md:text-base">
                   Choose the kind of project you want to build
                 </p>
               </div>
@@ -236,7 +354,7 @@ const Generate = () => {
               <RadioGroup
                 value={formData.projectType}
                 onValueChange={(value) => setFormData({ ...formData, projectType: value })}
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4"
               >
                 {projectTypes.map((type) => (
                   <Label
@@ -245,14 +363,14 @@ const Generate = () => {
                     className="cursor-pointer"
                   >
                     <Card
-                      className={`p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-105 ${
+                      className={`p-4 md:p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-105 ${
                         formData.projectType === type.value ? "border-primary bg-primary/5" : ""
                       }`}
                     >
                       <RadioGroupItem value={type.value} id={type.value} className="sr-only" />
                       <div className="text-center">
-                        <span className="text-4xl mb-2 block">{type.icon}</span>
-                        <span className="font-semibold">{type.label}</span>
+                        <span className="text-3xl md:text-4xl mb-2 block">{type.icon}</span>
+                        <span className="font-semibold text-sm md:text-base">{type.label}</span>
                       </div>
                     </Card>
                   </Label>
@@ -261,19 +379,52 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Step 2: Domain */}
-          {step === 2 && (
+          {/* Step 3: Project Kind */}
+          {step === 3 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
+                  What kind of project?
+                </h2>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  How do you plan to work on this?
+                </p>
+              </div>
+
+              <RadioGroup
+                value={formData.projectKind}
+                onValueChange={(value) => setFormData({ ...formData, projectKind: value })}
+                className="space-y-3"
+              >
+                {projectKinds.map((kind) => (
+                  <Label key={kind} htmlFor={kind} className="cursor-pointer">
+                    <Card
+                      className={`p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                        formData.projectKind === kind ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={kind} id={kind} className="sr-only" />
+                      <span className="font-medium text-sm md:text-base">{kind}</span>
+                    </Card>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Step 4: Domain */}
+          {step === 4 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
                   Choose your domain
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm md:text-base">
                   Select one or more areas of interest
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                 {domains.map((domain) => (
                   <Label
                     key={domain}
@@ -281,7 +432,7 @@ const Generate = () => {
                     className="cursor-pointer"
                   >
                     <Card
-                      className={`p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-105 ${
+                      className={`p-3 md:p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-105 ${
                         formData.domains.includes(domain) ? "border-primary bg-primary/5" : ""
                       }`}
                     >
@@ -291,7 +442,7 @@ const Generate = () => {
                           checked={formData.domains.includes(domain)}
                           onCheckedChange={() => handleDomainToggle(domain)}
                         />
-                        <span className="font-medium text-sm">{domain}</span>
+                        <span className="font-medium text-xs md:text-sm">{domain}</span>
                       </div>
                     </Card>
                   </Label>
@@ -300,14 +451,47 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Step 3: Purpose */}
-          {step === 3 && (
+          {/* Step 5: Stack Preference */}
+          {step === 5 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
+                  Stack preference?
+                </h2>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  What area of development interests you?
+                </p>
+              </div>
+
+              <RadioGroup
+                value={formData.stackPreference}
+                onValueChange={(value) => setFormData({ ...formData, stackPreference: value })}
+                className="space-y-3"
+              >
+                {stackPreferences.map((pref) => (
+                  <Label key={pref} htmlFor={pref} className="cursor-pointer">
+                    <Card
+                      className={`p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                        formData.stackPreference === pref ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={pref} id={pref} className="sr-only" />
+                      <span className="font-medium text-sm md:text-base">{pref}</span>
+                    </Card>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Step 6: Purpose */}
+          {step === 6 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
                   What's your purpose?
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm md:text-base">
                   Why are you building this project?
                 </p>
               </div>
@@ -315,7 +499,7 @@ const Generate = () => {
               <RadioGroup
                 value={formData.purpose}
                 onValueChange={(value) => setFormData({ ...formData, purpose: value })}
-                className="space-y-4"
+                className="space-y-3"
               >
                 {purposes.map((purpose) => (
                   <Label
@@ -324,12 +508,12 @@ const Generate = () => {
                     className="cursor-pointer"
                   >
                     <Card
-                      className={`p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                      className={`p-4 md:p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
                         formData.purpose === purpose.value ? "border-primary bg-primary/5" : ""
                       }`}
                     >
                       <RadioGroupItem value={purpose.value} id={purpose.value} className="sr-only" />
-                      <span className="font-semibold text-lg">{purpose.label}</span>
+                      <span className="font-semibold text-base md:text-lg">{purpose.label}</span>
                     </Card>
                   </Label>
                 ))}
@@ -337,21 +521,93 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Step 4: Complexity & Skill */}
-          {step === 4 && (
+          {/* Step 7: Time Plan */}
+          {step === 7 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
+                  How long will you work on this?
+                </h2>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Choose your time commitment
+                </p>
+              </div>
+
+              <RadioGroup
+                value={formData.timePlan}
+                onValueChange={(value) => setFormData({ ...formData, timePlan: value })}
+                className="space-y-3"
+              >
+                {timePlans.map((plan) => (
+                  <Label key={plan.value} htmlFor={plan.value} className="cursor-pointer">
+                    <Card
+                      className={`p-4 md:p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                        formData.timePlan === plan.value ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={plan.value} id={plan.value} className="sr-only" />
+                      <span className="font-semibold text-base md:text-lg">{plan.label}</span>
+                    </Card>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Step 8: Real World Area */}
+          {step === 8 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
+                  Real-world areas of interest
+                </h2>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Select areas that interest you most
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                {realWorldAreas.map((area) => (
+                  <Label
+                    key={area}
+                    htmlFor={area}
+                    className="cursor-pointer"
+                  >
+                    <Card
+                      className={`p-3 md:p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-105 ${
+                        formData.realWorldArea.includes(area) ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={area}
+                          checked={formData.realWorldArea.includes(area)}
+                          onCheckedChange={() => handleRealWorldAreaToggle(area)}
+                        />
+                        <span className="font-medium text-xs md:text-sm">{area}</span>
+                      </div>
+                    </Card>
+                  </Label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 9: Complexity & Skill */}
+          {step === 9 && (
             <div className="space-y-8">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
                   Set your preferences
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm md:text-base">
                   Choose complexity and skill level
                 </p>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <Label className="text-lg mb-4 block">Project Complexity</Label>
+                  <Label className="text-base md:text-lg mb-4 block">Project Complexity</Label>
                   <div className="space-y-4">
                     <Slider
                       value={[formData.complexity]}
@@ -360,14 +616,14 @@ const Generate = () => {
                       step={25}
                       className="w-full"
                     />
-                    <p className="text-center text-2xl font-bold gradient-text">
+                    <p className="text-center text-xl md:text-2xl font-bold gradient-text">
                       {getComplexityLabel(formData.complexity)}
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-lg mb-4 block">Your Skill Level</Label>
+                  <Label className="text-base md:text-lg mb-4 block">Your Skill Level</Label>
                   <RadioGroup
                     value={formData.skillLevel}
                     onValueChange={(value) => setFormData({ ...formData, skillLevel: value })}
@@ -381,7 +637,7 @@ const Generate = () => {
                           }`}
                         >
                           <RadioGroupItem value={level} id={level} className="sr-only" />
-                          <span className="font-medium capitalize">{level}</span>
+                          <span className="font-medium capitalize text-sm md:text-base">{level}</span>
                         </Card>
                       </Label>
                     ))}
@@ -391,72 +647,107 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Step 5: Technologies */}
-          {step === 5 && (
+          {/* Step 10: Technologies */}
+          {step === 10 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
                   Preferred technologies
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm md:text-base">
                   List the technologies you want to use (comma-separated)
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="technologies">Technologies</Label>
+                <Label htmlFor="technologies" className="text-sm md:text-base">Technologies</Label>
                 <Input
                   id="technologies"
                   placeholder="React, Node.js, Python, MongoDB..."
                   value={formData.technologies}
                   onChange={(e) => {
                     const value = e.target.value;
-                    // Limit to 500 characters
                     if (value.length <= 500) {
                       setFormData({ ...formData, technologies: value });
                     }
                   }}
                   maxLength={500}
                   minLength={1}
-                  className="text-lg"
+                  className="text-base md:text-lg"
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   {formData.technologies.length}/500 characters
                 </p>
               </div>
             </div>
           )}
 
-          {/* Step 6: Provider */}
-          {step === 6 && (
+          {/* Step 11: Education/Role */}
+          {step === 11 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
+                  Your background
+                </h2>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  What's your current education or role?
+                </p>
+              </div>
+
+              <RadioGroup
+                value={formData.educationRole}
+                onValueChange={(value) => setFormData({ ...formData, educationRole: value })}
+                className="space-y-3"
+              >
+                {educationRoles.map((role) => (
+                  <Label key={role.value} htmlFor={role.value} className="cursor-pointer">
+                    <Card
+                      className={`p-4 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                        formData.educationRole === role.value ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={role.value} id={role.value} className="sr-only" />
+                      <span className="font-medium text-sm md:text-base">{role.label}</span>
+                    </Card>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Step 12: Provider */}
+          {step === 12 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 gradient-text">
                   Choose AI provider
                 </h2>
-                <p className="text-muted-foreground">
-                  Use OpenAI, Gemini, or combine both
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Select which AI to generate your project ideas
                 </p>
               </div>
 
               <RadioGroup
                 value={formData.provider}
                 onValueChange={(value) => setFormData({ ...formData, provider: value as any })}
-                className="space-y-4"
+                className="space-y-3"
               >
                 {[
-                  { value: "openai", label: "OpenAI (GPT-4o mini)" },
-                  { value: "gemini", label: "Google Gemini (1.5 Flash)" },
-                  { value: "both", label: "Both (merge best ideas)" },
+                  { value: "openai", label: "OpenAI GPT-4o mini", desc: "Fast & efficient for idea generation" },
+                  { value: "gemini", label: "Google Gemini 2.5 Flash", desc: "Great for detailed analysis" },
+                  { value: "both", label: "Both (Recommended)", desc: "Combines best ideas from both AIs" },
                 ].map((opt) => (
                   <Label key={opt.value} htmlFor={opt.value} className="cursor-pointer">
                     <Card
-                      className={`p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                      className={`p-4 md:p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
                         formData.provider === opt.value ? "border-primary bg-primary/5" : ""
                       }`}
                     >
                       <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
-                      <span className="font-semibold text-lg">{opt.label}</span>
+                      <div>
+                        <span className="font-semibold text-base md:text-lg block">{opt.label}</span>
+                        <span className="text-xs md:text-sm text-muted-foreground">{opt.desc}</span>
+                      </div>
                     </Card>
                   </Label>
                 ))}
