@@ -229,21 +229,47 @@ export default function GenerateIdeas() {
       }
 
       // 4. Process successful response
+      // Supabase Edge Function returns { projects }. Fallbacks in case of different shapes.
+      const projects = (result && (result.projects || (Array.isArray(result) ? result : result.data))) as any;
       
-      if (!result?.data || !Array.isArray(result.data)) {
+      if (!projects || !Array.isArray(projects)) {
+        console.error('Unexpected response structure:', result);
         throw new Error('Invalid response format: missing or invalid data');
       }
       
-      if (result.data.length === 0) {
+      if (projects.length === 0) {
         throw new Error('No project ideas were generated. Please try different parameters.');
       }
       
-      setGeneratedIdeas(result.data);
+      // Map API projects to local ProjectIdea structure for rendering/saving
+      const mappedIdeas: ProjectIdea[] = projects.map((p: any) => {
+        let features: string[] = [];
+        if (p.overview) {
+          try {
+            const overviewObj = typeof p.overview === 'string' ? JSON.parse(p.overview) : p.overview;
+            features = Array.isArray(overviewObj?.keyFeatures) ? overviewObj.keyFeatures : [];
+          } catch (_e) {
+            features = [];
+          }
+        }
+        const domainValue = Array.isArray(p.domain) ? (p.domain[0] || 'General') : (p.domain || 'General');
+        const difficultyValue = (p.difficulty || p.complexity || 'intermediate') as 'beginner' | 'intermediate' | 'advanced';
+        return {
+          title: p.title || 'Untitled Project',
+          description: p.description || p.realWorldApplication || '',
+          difficulty: ['beginner','intermediate','advanced'].includes(difficultyValue) ? difficultyValue : 'intermediate',
+          domain: domainValue,
+          technologies: Array.isArray(p.technologies) ? p.technologies : (Array.isArray(p.techStack) ? p.techStack : []),
+          features,
+        } as ProjectIdea;
+      });
+      
+      setGeneratedIdeas(mappedIdeas);
       setStep(2);
       
       toast({
         title: 'Success!',
-        description: `Generated ${result.data.length} project ideas`,
+        description: `Generated ${mappedIdeas.length} project ideas`,
       });
       
     } catch (error) {
@@ -338,28 +364,22 @@ export default function GenerateIdeas() {
         updated_at: new Date().toISOString()
       };
 
-      // First, check if the table exists and has the correct schema
-      const { data: tableInfo, error: tableError } = await (supabase as any)
-        .rpc('get_table_info', { table_name: 'project_ideas' });
-
-      if (tableError) {
-        console.warn('Could not get table info, attempting to create table...');
-        // Create the table if it doesn't exist
-        const { error: createError } = await supabase.rpc('create_ideas_table');
-        
-        if (createError) {
-          console.error('Error creating table:', createError);
-          throw new Error('Failed to initialize database. Please try again later.');
-        }
-      }
-
-      // Now insert the idea
+      // Insert the idea. If the table doesn't exist in the project,
+      // surface a helpful error message instead of calling missing RPCs.
       const { data, error } = await supabase
         .from('project_ideas')
         .insert([ideaData] as any)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        // Common PostgREST errors when table is missing or schema not loaded
+        const msg = (error as any)?.message || '';
+        const code = (error as any)?.code || '';
+        if (code === 'PGRST202' || /relation .* does not exist/i.test(msg)) {
+          throw new Error('Project ideas table is missing. Please run the migration to create public.project_ideas.');
+        }
+        throw error;
+      }
       if (!data || data.length === 0) throw new Error('Failed to save idea');
 
       toast({
