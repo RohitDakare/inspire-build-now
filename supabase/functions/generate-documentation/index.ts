@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -28,12 +27,6 @@ serve(async (req) => {
       .single();
 
     if (!project) throw new Error('Project not found');
-
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    
-    if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not configured');
-    }
     
     const technologies = Array.isArray(project.technologies) ? project.technologies.join(', ') : '';
 
@@ -51,19 +44,65 @@ Include these sections:
 6. Conclusion (summary, future work)
 7. References (5-7 relevant links)
 
-Return as JSON with fields: introduction, system_analysis, system_design, implementation, testing, result, conclusion, references (array).`;
+Return as JSON with fields: introduction, system_analysis, system_design, implementation, testing, result, conclusion, references (array).
+Return ONLY the JSON object without any markdown formatting or code blocks.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
+    // Get Lovable AI Gateway API key
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    console.log("Calling Lovable AI Gateway for documentation...");
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a technical documentation expert. Return only valid JSON without markdown formatting.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 8192,
       }),
     });
 
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    const documentation = content ? JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || '{}') : {};
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("AI Gateway error:", errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a few moments.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required. Please add credits to your Lovable AI workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+    }
+
+    const aiData = await aiResponse.json();
+    let content = aiData.choices[0].message.content.trim();
+    
+    // Remove markdown code blocks if present
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    // Try to extract JSON object
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const documentation = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
     return new Response(JSON.stringify({ documentation }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

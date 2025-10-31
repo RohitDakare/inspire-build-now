@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -29,7 +28,6 @@ serve(async (req) => {
       technologies = [],
       skillLevel = "intermediate",
       educationRole = "developer",
-      provider = "both"
     } = requestData;
 
     // Ensure arrays are valid
@@ -80,123 +78,68 @@ For each project idea, provide:
 
 Return ONLY a valid JSON array with 3-5 project objects. No markdown, no explanations, just the JSON array.`;
 
-    let allIdeas: any[] = [];
+    // Get Lovable AI Gateway API key
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
 
-    // Generate ideas from OpenAI if selected
-    if (provider === "openai" || provider === "both") {
-      const openaiKey = Deno.env.get('OPENAI_API_KEY');
-      if (!openaiKey) {
-        console.warn("OpenAI API key not configured");
-      } else {
-        try {
-          console.log("Calling OpenAI API...");
-          const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openaiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: 'You are an expert software project advisor with deep knowledge of modern technologies and real-world applications. Generate practical, innovative project ideas that solve real problems.' },
-                { role: 'user', content: prompt }
-              ],
-              temperature: 0.7,
-              max_tokens: 2000,
-            }),
-          });
+    console.log("Calling Lovable AI Gateway...");
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are an expert software project advisor. Return only valid JSON arrays without markdown formatting.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.8,
+        max_tokens: 4000,
+      }),
+    });
 
-          if (!openaiResponse.ok) {
-            const error = await openaiResponse.text();
-            console.error('OpenAI API error:', error);
-          } else {
-            const openaiData = await openaiResponse.json();
-            const openaiContent = openaiData.choices[0].message.content;
-            
-            // Clean the response - remove markdown code blocks if present
-            let cleanContent = openaiContent.trim();
-            if (cleanContent.startsWith('```json')) {
-              cleanContent = cleanContent.replace(/```json\n?/, '').replace(/\n?```$/, '');
-            } else if (cleanContent.startsWith('```')) {
-              cleanContent = cleanContent.replace(/```\n?/, '').replace(/\n?```$/, '');
-            }
-            
-            try {
-              const openaiIdeas = JSON.parse(cleanContent);
-              allIdeas = allIdeas.concat(Array.isArray(openaiIdeas) ? openaiIdeas : [openaiIdeas]);
-              console.log(`Generated ${allIdeas.length} ideas from OpenAI`);
-            } catch (parseError) {
-              console.error('Error parsing OpenAI response:', parseError);
-            }
-          }
-        } catch (error) {
-          console.error('OpenAI API call failed:', error);
-        }
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("AI Gateway error:", errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a few moments.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    }
-
-    // Generate ideas from Gemini if selected
-    if (provider === "gemini" || provider === "both") {
-      const geminiKey = Deno.env.get('GEMINI_API_KEY');
-      if (!geminiKey) {
-        console.warn("Gemini API key not configured");
-      } else {
-        try {
-          console.log("Calling Gemini API...");
-          const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [{
-                    text: prompt + "\n\nIMPORTANT: Return ONLY valid JSON array, no markdown formatting."
-                  }]
-                }],
-                generationConfig: {
-                  temperature: 0.7,
-                  maxOutputTokens: 2048,
-                }
-              }),
-            }
-          );
-
-          if (!geminiResponse.ok) {
-            const error = await geminiResponse.text();
-            console.error('Gemini API error:', error);
-          } else {
-            const geminiData = await geminiResponse.json();
-            const geminiContent = geminiData.candidates[0].content.parts[0].text;
-            
-            // Clean the response - remove markdown code blocks if present
-            let cleanContent = geminiContent.trim();
-            if (cleanContent.startsWith('```json')) {
-              cleanContent = cleanContent.replace(/```json\n?/, '').replace(/\n?```$/, '');
-            } else if (cleanContent.startsWith('```')) {
-              cleanContent = cleanContent.replace(/```\n?/, '').replace(/\n?```$/, '');
-            }
-            
-            try {
-              const geminiIdeas = JSON.parse(cleanContent);
-              allIdeas = allIdeas.concat(Array.isArray(geminiIdeas) ? geminiIdeas : [geminiIdeas]);
-              console.log(`Generated ${allIdeas.length} total ideas (including Gemini)`);
-            } catch (parseError) {
-              console.error('Error parsing Gemini response:', parseError);
-            }
-          }
-        } catch (error) {
-          console.error('Gemini API call failed:', error);
-        }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required. Please add credits to your Lovable AI workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      
+      throw new Error(`AI Gateway error: ${aiResponse.status}`);
     }
 
-    if (allIdeas.length === 0) {
-      throw new Error("No ideas generated from AI providers. Please check API keys and try again.");
+    const aiData = await aiResponse.json();
+    let responseText = aiData.choices[0].message.content.trim();
+    
+    // Remove markdown code blocks if present
+    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    console.log("AI response received, parsing...");
+    const allIdeas = JSON.parse(responseText);
+    const ideasArray = Array.isArray(allIdeas) ? allIdeas : [allIdeas];
+
+    if (ideasArray.length === 0) {
+      throw new Error("No project ideas could be generated");
     }
+
+    console.log(`Generated ${ideasArray.length} project ideas`);
 
     // Get the authenticated user
     const authHeader = req.headers.get('Authorization')!;
@@ -213,16 +156,9 @@ Return ONLY a valid JSON array with 3-5 project objects. No markdown, no explana
       throw new Error("User not authenticated");
     }
 
-    // If using both providers, merge and deduplicate ideas
-    let finalIdeas = allIdeas;
-    if (provider === "both" && allIdeas.length > 5) {
-      // Take best ideas from both providers
-      finalIdeas = allIdeas.slice(0, 5);
-    }
-
     // Store projects in database
     const projects = [];
-    for (const idea of finalIdeas) {
+    for (const idea of ideasArray) {
       try {
         const { data: project, error: insertError } = await supabase
           .from('projects')
@@ -232,7 +168,7 @@ Return ONLY a valid JSON array with 3-5 project objects. No markdown, no explana
             description: idea.description || idea.realWorldApplication || 'No description',
             technologies: idea.techStack || safeTechnologies,
             project_type: projectType,
-            domain: safeDomains,
+            domain: safeDomains.length > 0 ? safeDomains : ['General'],
             complexity: idea.difficulty || complexity,
             skill_level: skillLevel,
             purpose: purpose,

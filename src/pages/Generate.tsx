@@ -103,7 +103,6 @@ const Generate = () => {
     complexity: 50,
     technologies: "",
     skillLevel: "intermediate",
-    provider: "both" as "openai" | "gemini" | "both",
     goal: "",
     projectKind: "",
     stackPreference: "",
@@ -161,7 +160,7 @@ const Generate = () => {
       case 9: return true; // complexity slider
       case 10: return formData.technologies.trim() !== "";
       case 11: return formData.educationRole !== "";
-      case 12: return ["openai","gemini","both"].includes(formData.provider);
+      case 12: return true; // Always allow final step
       default: return false;
     }
   };
@@ -251,20 +250,41 @@ const Generate = () => {
           technologies: formData.technologies.split(",").map(t => t.trim()).filter(t => t !== ""),
           skillLevel: formData.skillLevel,
           educationRole: formData.educationRole,
-          provider: formData.provider,
         },
       });
 
-      // If edge function call failed, use mock data
+      // Handle edge function errors
       if (error) {
-        console.warn('Edge function error, using fallback mock data:', error);
+        console.error('Edge function error:', error);
+        
+        // Check for specific error types
+        if (error.message?.includes('Rate limit exceeded')) {
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "You're generating ideas too quickly. Please wait a moment and try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        if (error.message?.includes('Payment required')) {
+          toast({
+            title: "Credits Required",
+            description: "Please add credits to your workspace to continue generating projects.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Generic error - try fallback
+        console.warn('Using fallback mock data');
         try {
           await createMockProjects(session.user.id);
         } catch (mockError) {
           console.error('Mock data creation failed:', mockError);
           toast({
             title: "Generation Failed",
-            description: "Failed to create mock projects. Please try again.",
+            description: "Failed to generate projects. Please try again.",
             variant: "destructive",
           });
         }
@@ -727,31 +747,19 @@ const Generate = () => {
                 </p>
               </div>
 
-              <RadioGroup
-                value={formData.provider}
-                onValueChange={(value) => setFormData({ ...formData, provider: value as any })}
-                className="space-y-3"
-              >
-                {[
-                  { value: "openai", label: "OpenAI GPT-4o mini", desc: "Fast & efficient for idea generation" },
-                  { value: "gemini", label: "Google Gemini 2.5 Flash", desc: "Great for detailed analysis" },
-                  { value: "both", label: "Both (Recommended)", desc: "Combines best ideas from both AIs" },
-                ].map((opt) => (
-                  <Label key={opt.value} htmlFor={opt.value} className="cursor-pointer">
-                    <Card
-                      className={`p-4 md:p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
-                        formData.provider === opt.value ? "border-primary bg-primary/5" : ""
-                      }`}
-                    >
-                      <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
-                      <div>
-                        <span className="font-semibold text-base md:text-lg block">{opt.label}</span>
-                        <span className="text-xs md:text-sm text-muted-foreground">{opt.desc}</span>
-                      </div>
-                    </Card>
-                  </Label>
-                ))}
-              </RadioGroup>
+              <Card className="p-6 bg-primary/5 border-primary">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Sparkles className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg mb-2">Powered by Lovable AI</h4>
+                    <p className="text-muted-foreground">
+                      Using Google Gemini 2.5 Flash for intelligent project idea generation tailored to your preferences.
+                    </p>
+                  </div>
+                </div>
+              </Card>
             </div>
           )}
 
