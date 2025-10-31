@@ -95,7 +95,7 @@ const ProjectDetails = () => {
         .insert({
           project_id: id!,
           user_id: session.user.id,
-        });
+        } as any);
 
       setIsSaved(true);
       toast({

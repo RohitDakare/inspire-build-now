@@ -208,7 +208,7 @@ const Generate = () => {
         .insert({
           user_id: userId,
           ...idea,
-        })
+        } as any)
         .select()
         .single();
       

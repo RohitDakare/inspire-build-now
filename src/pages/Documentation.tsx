@@ -50,7 +50,7 @@ const Documentation = () => {
         return;
       }
 
-      setProjectTitle(data.title);
+      setProjectTitle((data as any).title);
     };
 
     loadProject();

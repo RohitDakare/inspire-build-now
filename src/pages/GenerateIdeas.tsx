@@ -339,7 +339,7 @@ export default function GenerateIdeas() {
       };
 
       // First, check if the table exists and has the correct schema
-      const { data: tableInfo, error: tableError } = await supabase
+      const { data: tableInfo, error: tableError } = await (supabase as any)
         .rpc('get_table_info', { table_name: 'project_ideas' });
 
       if (tableError) {
@@ -356,7 +356,7 @@ export default function GenerateIdeas() {
       // Now insert the idea
       const { data, error } = await supabase
         .from('project_ideas')
-        .insert([ideaData])
+        .insert([ideaData] as any)
         .select();
 
       if (error) throw error;
@@ -492,7 +492,7 @@ export default function GenerateIdeas() {
         </div>
       </CardContent>
       <CardFooter className="flex justify-end">
-        <Button onClick={generateIdeas} disabled={loading}>
+        <Button onClick={() => generateIdeas()} disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

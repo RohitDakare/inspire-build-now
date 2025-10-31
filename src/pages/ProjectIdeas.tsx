@@ -53,7 +53,7 @@ const ProjectIdeas = () => {
         .eq("user_id", session.user.id);
 
       if (saved) {
-        setSavedProjects(new Set(saved.map(s => s.project_id)));
+        setSavedProjects(new Set(saved.map((s: any) => s.project_id)));
       }
 
       setLoading(false);
@@ -100,7 +100,7 @@ const ProjectIdeas = () => {
         .insert({
           project_id: projectId,
           user_id: session.user.id,
-        });
+        } as any);
 
       setSavedProjects(prev => new Set(prev).add(projectId));
 
