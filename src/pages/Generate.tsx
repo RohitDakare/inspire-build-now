@@ -45,9 +45,10 @@ const Generate = () => {
     complexity: 50,
     technologies: "",
     skillLevel: "intermediate",
+    provider: "both" as "openai" | "gemini" | "both",
   });
 
-  const totalSteps = 5;
+  const totalSteps = 6;
   const progress = (step / totalSteps) * 100;
 
   const complexityLabels: { [key: number]: string } = {
@@ -81,6 +82,7 @@ const Generate = () => {
       case 3: return formData.purpose !== "";
       case 4: return true;
       case 5: return formData.technologies.trim() !== "";
+      case 6: return ["openai","gemini","both"].includes(formData.provider);
       default: return false;
     }
   };
@@ -164,6 +166,7 @@ const Generate = () => {
           complexity: getComplexityLabel(formData.complexity),
           technologies: formData.technologies.split(",").map(t => t.trim()).filter(t => t !== ""),
           skillLevel: formData.skillLevel,
+          provider: formData.provider,
         },
       });
 
@@ -421,6 +424,43 @@ const Generate = () => {
                   {formData.technologies.length}/500 characters
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Step 6: Provider */}
+          {step === 6 && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold mb-2 gradient-text">
+                  Choose AI provider
+                </h2>
+                <p className="text-muted-foreground">
+                  Use OpenAI, Gemini, or combine both
+                </p>
+              </div>
+
+              <RadioGroup
+                value={formData.provider}
+                onValueChange={(value) => setFormData({ ...formData, provider: value as any })}
+                className="space-y-4"
+              >
+                {[
+                  { value: "openai", label: "OpenAI (GPT-4o mini)" },
+                  { value: "gemini", label: "Google Gemini (1.5 Flash)" },
+                  { value: "both", label: "Both (merge best ideas)" },
+                ].map((opt) => (
+                  <Label key={opt.value} htmlFor={opt.value} className="cursor-pointer">
+                    <Card
+                      className={`p-6 hover:bg-muted/50 transition-all duration-300 hover:scale-[1.02] ${
+                        formData.provider === opt.value ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                      <span className="font-semibold text-lg">{opt.label}</span>
+                    </Card>
+                  </Label>
+                ))}
+              </RadioGroup>
             </div>
           )}
 

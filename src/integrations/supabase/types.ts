@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      project_ideas: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string
+          difficulty_level: 'beginner' | 'intermediate' | 'advanced'
+          domain: string
+          technologies: string[]
+          features: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          description: string
+          difficulty_level: 'beginner' | 'intermediate' | 'advanced'
+          domain: string
+          technologies: string[]
+          features: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          description?: string
+          difficulty_level?: 'beginner' | 'intermediate' | 'advanced'
+          domain?: string
+          technologies?: string[]
+          features?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+      }
       profiles: {
         Row: {
           avatar_url: string | null

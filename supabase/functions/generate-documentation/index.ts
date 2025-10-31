@@ -34,10 +34,12 @@ serve(async (req) => {
       throw new Error('GEMINI_API_KEY is not configured');
     }
     
+    const technologies = Array.isArray(project.technologies) ? project.technologies.join(', ') : '';
+
     const prompt = `Generate comprehensive project documentation for:
 Title: ${project.title}
 Description: ${project.description}
-Technologies: ${project.technologies.join(', ')}
+Technologies: ${technologies}
 
 Include these sections:
 1. Introduction (overview, objectives, scope)
@@ -59,14 +61,15 @@ Return as JSON with fields: introduction, system_analysis, system_design, implem
     });
 
     const data = await response.json();
-    const content = data.candidates[0].content.parts[0].text;
-    const documentation = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || '{}');
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const documentation = content ? JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || '{}') : {};
 
     return new Response(JSON.stringify({ documentation }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Function Error:', error);
+    return new Response(JSON.stringify({ error: error.message, details: error.stack }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

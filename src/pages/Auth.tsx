@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Mail, Lock, User, Eye, EyeOff, Github, Chrome } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -137,6 +137,62 @@ const Auth = () => {
     }
   };
 
+  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast({
+        title: `Login with ${provider} failed`,
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address in the email field to reset your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!validateEmail(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Error Sending Reset Link",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Password Reset Link Sent",
+        description: "Check your email for instructions to reset your password.",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/30 to-background relative overflow-hidden">
       {/* Animated background elements */}
@@ -208,6 +264,34 @@ const Auth = () => {
               >
                 {loading ? "Signing In..." : "Sign In"}
               </Button>
+
+              <div className="text-center text-sm text-muted-foreground">
+                <button type="button" onClick={handlePasswordReset} className="underline hover:text-primary">
+                  Forgot Password?
+                </button>
+              </div>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" onClick={() => handleOAuthSignIn('github')} disabled={loading}>
+                  <Github className="mr-2 h-4 w-4" />
+                  GitHub
+                </Button>
+                <Button variant="outline" onClick={() => handleOAuthSignIn('google')} disabled={loading}>
+                  <Chrome className="mr-2 h-4 w-4" />
+                  Google
+                </Button>
+              </div>
             </form>
           </TabsContent>
 
@@ -291,6 +375,28 @@ const Auth = () => {
               >
                 {loading ? "Creating Account..." : "Sign Up"}
               </Button>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or sign up with
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" onClick={() => handleOAuthSignIn('github')} disabled={loading}>
+                  <Github className="mr-2 h-4 w-4" />
+                  GitHub
+                </Button>
+                <Button variant="outline" onClick={() => handleOAuthSignIn('google')} disabled={loading}>
+                  <Chrome className="mr-2 h-4 w-4" />
+                  Google
+                </Button>
+              </div>
             </form>
           </TabsContent>
         </Tabs>

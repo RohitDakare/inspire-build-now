@@ -7,7 +7,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Generate from "./pages/Generate";
+import GenerateIdeas from "./pages/GenerateIdeas";
 import ProjectIdeas from "./pages/ProjectIdeas";
 import ProjectDetails from "./pages/ProjectDetails";
 import Documentation from "./pages/Documentation";
@@ -28,7 +28,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/generate" element={<Generate />} />
+            <Route path="/generate" element={<GenerateIdeas />} />
             <Route path="/ideas" element={<ProjectIdeas />} />
             <Route path="/project/:id" element={<ProjectDetails />} />
             <Route path="/project/:id/documentation" element={<Documentation />} />
